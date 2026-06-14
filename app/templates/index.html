@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG-Based Knowledge Management System</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg-base: #0B0B18;
+            --bg-surface: #111127;
+            --bg-raised: #181830;
+            --bg-hover: #1E1E3A;
+            --purple-deep: #534AB7;
+            --purple-mid: #7F77DD;
+            --purple-light: #AFA9EC;
+            --purple-pale: #EEEDFE;
+            --teal: #1D9E75;
+            --teal-light: #5DCAA5;
+            --blue: #378ADD;
+            --blue-light: #85B7EB;
+            --border: rgba(255,255,255,0.07);
+            --border-accent: rgba(127,119,221,0.35);
+            --text-primary: #E8E8F8;
+            --text-secondary: #8888AA;
+            --text-muted: #44445A;
+            --font-main: 'Inter', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background: var(--bg-base);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 28px;
+            height: 60px;
+            background: var(--bg-surface);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .logo { display: flex; align-items: center; gap: 12px; }
+
+        .logo-icon {
+            width: 36px; height: 36px;
+            background: var(--purple-deep);
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; color: var(--purple-pale);
+        }
+
+        .logo-name { font-size: 15px; font-weight: 600; color: var(--text-primary); letter-spacing: 0.2px; }
+        .logo-tagline { font-size: 11px; color: var(--purple-mid); margin-top: 1px; font-family: var(--font-mono); }
+
+        .topbar-right { display: flex; align-items: center; gap: 12px; }
+
+        .engine-badge {
+            display: flex; align-items: center; gap: 7px;
+            background: rgba(29,158,117,0.1);
+            border: 1px solid rgba(29,158,117,0.25);
+            border-radius: 99px; padding: 5px 14px;
+            font-size: 12px; font-family: var(--font-mono); color: var(--teal-light);
+        }
+
+        .pulse {
+            width: 7px; height: 7px;
+            background: var(--teal); border-radius: 50%; position: relative;
+        }
+
+        .pulse::after {
+            content: ''; position: absolute; inset: -3px;
+            border-radius: 50%; border: 2px solid var(--teal);
+            animation: ping 1.8s ease-out infinite; opacity: 0;
+        }
+
+        @keyframes ping {
+            0% { transform: scale(0.8); opacity: 0.6; }
+            100% { transform: scale(1.8); opacity: 0; }
+        }
+
+        .tech-pills { display: flex; gap: 6px; }
+
+        .tech-pill {
+            font-size: 10px; font-family: var(--font-mono);
+            padding: 3px 10px; border-radius: 99px;
+            border: 1px solid var(--border); color: var(--text-secondary); background: var(--bg-raised);
+        }
+
+        .workspace {
+            display: grid; grid-template-columns: 300px 1fr;
+            flex: 1; min-height: 0; overflow: hidden;
+        }
+
+        .sidebar {
+            background: var(--bg-surface); border-right: 1px solid var(--border);
+            display: flex; flex-direction: column; overflow-y: auto;
+            padding: 20px 16px; gap: 24px;
+        }
+
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-thumb { background: var(--border-accent); border-radius: 4px; }
+
+        .section-head {
+            font-size: 10px; font-family: var(--font-mono); font-weight: 500;
+            color: var(--purple-mid); letter-spacing: 1.8px; text-transform: uppercase;
+            margin-bottom: 12px; display: flex; align-items: center; gap: 6px;
+        }
+
+        .dropzone {
+            border: 1.5px dashed var(--border-accent); border-radius: 12px;
+            padding: 24px 16px; text-align: center; cursor: pointer;
+            background: rgba(83,74,183,0.04); transition: all 0.2s; display: block;
+        }
+
+        .dropzone:hover, .dropzone.drag-over {
+            border-color: var(--purple-mid); background: rgba(83,74,183,0.1);
+        }
+
+        .drop-icon { font-size: 30px; color: var(--purple-deep); margin-bottom: 10px; }
+        .drop-title { font-size: 13px; font-weight: 500; color: var(--text-primary); margin-bottom: 4px; }
+        .drop-sub { font-size: 11px; color: var(--text-secondary); margin-bottom: 12px; }
+
+        .type-chips { display: flex; justify-content: center; gap: 6px; }
+
+        .type-chip {
+            font-size: 10px; font-family: var(--font-mono); padding: 3px 9px;
+            border-radius: 99px; border: 1px solid var(--border-accent);
+            color: var(--purple-light); background: rgba(83,74,183,0.1);
+        }
+
+        .selected-files { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+
+        .file-badge {
+            display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+            background: var(--bg-raised); border: 1px solid var(--border);
+            border-radius: 8px; font-size: 12px; color: var(--text-secondary);
+        }
+
+        .file-badge i { color: var(--purple-mid); }
+
+        .ingest-btn {
+            width: 100%; margin-top: 12px; padding: 11px;
+            background: var(--purple-deep); border: none; border-radius: 10px;
+            color: var(--purple-pale); font-size: 13px; font-weight: 500;
+            font-family: var(--font-main); cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            transition: background 0.2s;
+        }
+
+        .ingest-btn:hover { background: var(--purple-mid); }
+        .ingest-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .status-box {
+            display: flex; align-items: center; gap: 10px; padding: 12px;
+            background: rgba(29,158,117,0.08); border: 1px solid rgba(29,158,117,0.2);
+            border-radius: 10px; font-size: 12px; color: var(--teal-light);
+        }
+
+        .status-box.hidden { display: none; }
+
+        .mini-spinner {
+            width: 16px; height: 16px;
+            border: 2px solid rgba(29,158,117,0.2); border-top-color: var(--teal);
+            border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+        .stat-card {
+            background: var(--bg-raised); border: 1px solid var(--border);
+            border-radius: 10px; padding: 12px;
+        }
+
+        .stat-val { font-size: 22px; font-weight: 600; color: var(--purple-mid); font-family: var(--font-mono); }
+        .stat-lbl { font-size: 10px; color: var(--text-muted); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.8px; }
+
+        .stack-list { display: flex; flex-direction: column; gap: 6px; }
+
+        .stack-item {
+            display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+            background: var(--bg-raised); border: 1px solid var(--border);
+            border-radius: 8px; font-size: 12px; color: var(--text-secondary);
+        }
+
+        .stack-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+        .chat-panel { display: flex; flex-direction: column; background: var(--bg-base); min-height: 0; }
+
+        .chat-header {
+            padding: 14px 24px; border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+        }
+
+        .chat-title {
+            font-size: 14px; font-weight: 500; color: var(--text-primary);
+            display: flex; align-items: center; gap: 8px;
+        }
+
+        .chat-title i { color: var(--purple-mid); }
+        .chat-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; font-family: var(--font-mono); }
+
+        .memory-badge {
+            display: flex; align-items: center; gap: 6px; font-size: 11px;
+            padding: 4px 12px; background: var(--bg-raised);
+            border: 1px solid var(--border-accent); border-radius: 99px;
+            color: var(--purple-light); font-family: var(--font-mono);
+        }
+
+        .chat-messages {
+            flex: 1; overflow-y: auto; padding: 24px;
+            display: flex; flex-direction: column; gap: 18px;
+        }
+
+        .chat-messages::-webkit-scrollbar { width: 4px; }
+        .chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+        .welcome-card {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; text-align: center; padding: 48px 32px; gap: 12px;
+        }
+
+        .welcome-icon {
+            width: 56px; height: 56px;
+            background: rgba(83,74,183,0.15); border: 1px solid var(--border-accent);
+            border-radius: 16px; display: flex; align-items: center; justify-content: center;
+            font-size: 24px; color: var(--purple-mid); margin-bottom: 8px;
+        }
+
+        .welcome-card h3 { font-size: 18px; font-weight: 600; color: var(--text-primary); }
+
+        .welcome-card p {
+            font-size: 13px; color: var(--text-secondary);
+            line-height: 1.7; max-width: 480px;
+        }
+
+        .welcome-hints { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+
+        .hint-chip {
+            font-size: 11px; padding: 5px 12px; border: 1px solid var(--border);
+            border-radius: 99px; color: var(--text-muted); cursor: pointer; transition: all 0.2s;
+        }
+
+        .hint-chip:hover { border-color: var(--purple-mid); color: var(--purple-light); }
+
+        .msg-row { display: flex; align-items: flex-start; gap: 10px; }
+        .msg-row.user-row { flex-direction: row-reverse; }
+
+        .msg-avatar {
+            width: 32px; height: 32px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; flex-shrink: 0;
+        }
+
+        .msg-avatar.ai-av {
+            background: rgba(83,74,183,0.15); border: 1px solid var(--border-accent); color: var(--purple-mid);
+        }
+
+        .msg-avatar.user-av {
+            background: rgba(15,110,86,0.2); border: 1px solid rgba(29,158,117,0.3);
+            color: var(--teal-light); font-size: 10px; font-weight: 600; font-family: var(--font-mono);
+        }
+
+        .msg-bubble {
+            padding: 12px 16px; border-radius: 12px;
+            font-size: 13px; line-height: 1.7; max-width: 75%;
+        }
+
+        .msg-bubble.ai-bubble { background: var(--bg-surface); border: 1px solid var(--border); color: #C8C8E0; }
+        .msg-bubble.user-bubble { background: rgba(55,138,221,0.12); border: 1px solid rgba(55,138,221,0.25); color: var(--blue-light); }
+        .msg-bubble.error-bubble { background: rgba(226,75,74,0.08); border: 1px solid rgba(226,75,74,0.2); color: #F09595; }
+
+        .typing-dots { display: flex; gap: 4px; align-items: center; padding: 4px 0; }
+
+        .typing-dots span {
+            width: 6px; height: 6px; background: var(--purple-mid);
+            border-radius: 50%; animation: bounce 1.2s infinite;
+        }
+
+        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes bounce {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-5px); opacity: 1; }
+        }
+
+        .toast {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 14px; border-radius: 10px; font-size: 12px; transition: opacity 0.4s;
+        }
+
+        .toast.success { background: rgba(29,158,117,0.1); border: 1px solid rgba(29,158,117,0.25); color: var(--teal-light); }
+        .toast.error { background: rgba(226,75,74,0.08); border: 1px solid rgba(226,75,74,0.2); color: #F09595; }
+
+        .input-dock {
+            padding: 16px 24px; border-top: 1px solid var(--border);
+            background: var(--bg-surface); flex-shrink: 0;
+        }
+
+        .input-row { display: flex; gap: 10px; align-items: flex-end; }
+
+        .input-box {
+            flex: 1; background: var(--bg-raised); border: 1px solid var(--border);
+            border-radius: 12px; padding: 11px 16px; font-size: 13px;
+            font-family: var(--font-main); color: var(--text-primary);
+            outline: none; resize: none; max-height: 120px; line-height: 1.5; transition: border-color 0.2s;
+        }
+
+        .input-box::placeholder { color: var(--text-muted); }
+        .input-box:focus { border-color: var(--purple-deep); }
+
+        .send-btn {
+            width: 42px; height: 42px; background: var(--purple-deep); border: none;
+            border-radius: 10px; color: var(--purple-pale); font-size: 15px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; transition: background 0.2s; flex-shrink: 0;
+        }
+
+        .send-btn:hover { background: var(--purple-mid); }
+        .input-hint { font-size: 11px; color: var(--text-muted); margin-top: 8px; font-family: var(--font-mono); }
+    </style>
+</head>
+<body>
+
+<div style="display:flex;flex-direction:column;height:100vh">
+
+    <header class="topbar">
+        <div class="logo">
+            <div class="logo-icon"><i class="fa-solid fa-brain"></i></div>
+            <div>
+                <div class="logo-name">RAG-Based Knowledge Management System</div>
+                <div class="logo-tagline">LangChain · OpenAI GPT-3.5 · ChromaDB · Flask</div>
+            </div>
+        </div>
+        <div class="topbar-right">
+            <div class="tech-pills">
+                <span class="tech-pill">Python</span>
+                <span class="tech-pill">LangChain 0.2</span>
+                <span class="tech-pill">Vector RAG</span>
+            </div>
+            <div class="engine-badge">
+                <div class="pulse"></div> Local Engine Active
+            </div>
+        </div>
+    </header>
+
+    <div class="workspace">
+
+        <aside class="sidebar">
+            <div>
+                <div class="section-head"><i class="fa-solid fa-upload" style="font-size:9px"></i> Data Ingestion</div>
+                <form id="upload-form">
+                    <input type="file" id="file-input" multiple hidden accept=".pdf,.txt,.docx">
+                    <label for="file-input" class="dropzone" id="dropzone">
+                        <div class="drop-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+                        <div class="drop-title">Drop documents here</div>
+                        <div class="drop-sub">or click to browse files</div>
+                        <div class="type-chips">
+                            <span class="type-chip">PDF</span>
+                            <span class="type-chip">TXT</span>
+                            <span class="type-chip">DOCX</span>
+                        </div>
+                    </label>
+                    <div id="selected-files" class="selected-files"></div>
+                    <button type="submit" class="ingest-btn" id="ingest-btn">
+                        <i class="fa-solid fa-bolt"></i> Ingest &amp; Vectorize
+                    </button>
+                </form>
+                <div id="upload-status" class="status-box hidden" style="margin-top:10px">
+                    <div class="mini-spinner"></div>
+                    <span id="status-msg">Structuring embeddings...</span>
+                </div>
+            </div>
+
+            <div>
+                <div class="section-head"><i class="fa-solid fa-chart-bar" style="font-size:9px"></i> Index Stats</div>
+                <div class="stats-grid">
+                    <div class="stat-card"><div class="stat-val" id="stat-chunks">—</div><div class="stat-lbl">Chunks</div></div>
+                    <div class="stat-card"><div class="stat-val" id="stat-docs">0</div><div class="stat-lbl">Documents</div></div>
+                    <div class="stat-card"><div class="stat-val">1536</div><div class="stat-lbl">Embed dims</div></div>
+                    <div class="stat-card"><div class="stat-val">k=4</div><div class="stat-lbl">Top results</div></div>
+                </div>
+            </div>
+
+            <div>
+                <div class="section-head"><i class="fa-solid fa-microchip" style="font-size:9px"></i> Tech Stack</div>
+                <div class="stack-list">
+                    <div class="stack-item"><div class="stack-dot" style="background:#7F77DD"></div>LangChain 0.2</div>
+                    <div class="stack-item"><div class="stack-dot" style="background:#378ADD"></div>OpenAI GPT-3.5-Turbo</div>
+                    <div class="stack-item"><div class="stack-dot" style="background:#1D9E75"></div>ChromaDB Vector Store</div>
+                    <div class="stack-item"><div class="stack-dot" style="background:#D85A30"></div>Flask REST API</div>
+                    <div class="stack-item"><div class="stack-dot" style="background:#BA7517"></div>OpenAI Embeddings</div>
+                    <div class="stack-item"><div class="stack-dot" style="background:#5DCAA5"></div>Retrieval-Augmented Generation</div>
+                </div>
+            </div>
+        </aside>
+
+        <section class="chat-panel">
+            <div class="chat-header">
+                <div>
+                    <div class="chat-title"><i class="fa-solid fa-comments"></i> Cognitive Query Engine</div>
+                    <div class="chat-sub">answers strictly from your uploaded documents · no hallucinations</div>
+                </div>
+                <div class="memory-badge"><i class="fa-solid fa-clock-rotate-left" style="font-size:10px"></i> Memory On</div>
+            </div>
+
+            <div class="chat-messages" id="chat-messages">
+                <div class="welcome-card" id="welcome-card">
+                    <div class="welcome-icon"><i class="fa-solid fa-robot"></i></div>
+                    <h3>Welcome to RAG Knowledge Studio</h3>
+                    <p>Upload your business documents, academic papers, or medical texts on the left panel. Once vectorized, I will answer queries based exclusively on that contextual pipeline — no hallucinations, no guesswork.</p>
+                    <div class="welcome-hints">
+                        <span class="hint-chip" onclick="setHint(this)">Summarize the document</span>
+                        <span class="hint-chip" onclick="setHint(this)">What are the key findings?</span>
+                        <span class="hint-chip" onclick="setHint(this)">List the main topics</span>
+                        <span class="hint-chip" onclick="setHint(this)">Explain the methodology</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="input-dock">
+                <div class="input-row">
+                    <textarea class="input-box" id="question-input" rows="1" placeholder="Ask anything across the knowledge base..."></textarea>
+                    <button class="send-btn" id="send-btn"><i class="fa-solid fa-paper-plane"></i></button>
+                </div>
+                <div class="input-hint">Enter to send · Shift+Enter for new line</div>
+            </div>
+        </section>
+
+    </div>
+</div>
+
+<script>
+    const fileInput = document.getElementById('file-input');
+    const uploadForm = document.getElementById('upload-form');
+    const selectedFiles = document.getElementById('selected-files');
+    const uploadStatus = document.getElementById('upload-status');
+    const statusMsg = document.getElementById('status-msg');
+    const questionInput = document.getElementById('question-input');
+    const sendBtn = document.getElementById('send-btn');
+    const chatMessages = document.getElementById('chat-messages');
+    const ingestBtn = document.getElementById('ingest-btn');
+    const dropzone = document.getElementById('dropzone');
+    let docCount = 0;
+
+    questionInput.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    });
+
+    dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+    dropzone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropzone.classList.remove('drag-over');
+        fileInput.files = e.dataTransfer.files;
+        renderFileList();
+    });
+
+    fileInput.addEventListener('change', renderFileList);
+
+    function renderFileList() {
+        selectedFiles.innerHTML = '';
+        Array.from(fileInput.files).forEach(f => {
+            const badge = document.createElement('div');
+            badge.className = 'file-badge';
+            badge.innerHTML = `<i class="fa-regular fa-file-pdf"></i> <span>${f.name}</span>`;
+            selectedFiles.appendChild(badge);
+        });
+    }
+
+    uploadForm.addEventListener('submit', async e => {
+        e.preventDefault();
+        if (!fileInput.files.length) { showToast('Please select files first.', 'error'); return; }
+
+        const formData = new FormData();
+        Array.from(fileInput.files).forEach(f => formData.append('file', f));
+
+        ingestBtn.disabled = true;
+        uploadStatus.classList.remove('hidden');
+        statusMsg.textContent = 'Uploading and structuring embeddings...';
+
+        try {
+            const res = await fetch('/upload', { method: 'POST', body: formData });
+            const data = await res.json();
+            uploadStatus.classList.add('hidden');
+            ingestBtn.disabled = false;
+
+            if (res.ok) {
+                docCount += fileInput.files.length;
+                document.getElementById('stat-docs').textContent = docCount;
+                document.getElementById('stat-chunks').textContent = '✓';
+                showToast(data.message || 'Documents vectorized into ChromaDB!', 'success');
+                selectedFiles.innerHTML = '';
+                uploadForm.reset();
+            } else {
+                showToast(data.error || 'Ingestion failed.', 'error');
+            }
+        } catch {
+            uploadStatus.classList.add('hidden');
+            ingestBtn.disabled = false;
+            showToast('Network error during upload.', 'error');
+        }
+    });
+
+    async function sendQuery() {
+        const q = questionInput.value.trim();
+        if (!q) return;
+
+        document.getElementById('welcome-card')?.remove();
+        appendBubble(q, 'user');
+        questionInput.value = '';
+        questionInput.style.height = 'auto';
+
+        const loadId = 'load-' + Date.now();
+        appendTyping(loadId);
+
+        try {
+            const res = await fetch('/query', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question: q })
+            });
+            const data = await res.json();
+            document.getElementById(loadId)?.remove();
+
+            if (res.ok) appendBubble(data.response, 'ai');
+            else appendBubble(data.error || 'Pipeline error.', 'error');
+        } catch {
+            document.getElementById(loadId)?.remove();
+            appendBubble('Server connection error.', 'error');
+        }
+    }
+
+    function appendBubble(text, type) {
+        const row = document.createElement('div');
+        row.className = `msg-row ${type === 'user' ? 'user-row' : ''}`;
+
+        const av = document.createElement('div');
+        av.className = `msg-avatar ${type === 'user' ? 'user-av' : 'ai-av'}`;
+        av.innerHTML = type === 'user' ? 'You' : '<i class="fa-solid fa-robot"></i>';
+
+        const bubble = document.createElement('div');
+        bubble.className = `msg-bubble ${type === 'user' ? 'user-bubble' : type === 'error' ? 'ai-bubble error-bubble' : 'ai-bubble'}`;
+        bubble.textContent = text;
+
+        if (type === 'user') { row.appendChild(bubble); row.appendChild(av); }
+        else { row.appendChild(av); row.appendChild(bubble); }
+
+        chatMessages.appendChild(row);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function appendTyping(id) {
+        const row = document.createElement('div');
+        row.className = 'msg-row';
+        row.id = id;
+        row.innerHTML = `
+            <div class="msg-avatar ai-av"><i class="fa-solid fa-robot"></i></div>
+            <div class="msg-bubble ai-bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>`;
+        chatMessages.appendChild(row);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function showToast(msg, type) {
+        const t = document.createElement('div');
+        t.className = `toast ${type}`;
+        t.innerHTML = `<i class="fa-solid fa-${type === 'success' ? 'circle-check' : 'circle-exclamation'}"></i> ${msg}`;
+        chatMessages.appendChild(t);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, 5000);
+    }
+
+    function setHint(el) {
+        questionInput.value = el.textContent;
+        questionInput.focus();
+    }
+
+    sendBtn.addEventListener('click', sendQuery);
+    questionInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendQuery(); }
+    });
+</script>
+</body>
+</html>
